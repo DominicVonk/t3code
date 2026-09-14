@@ -1023,9 +1023,15 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
             path.join(worktreeCwd, ".git"),
             `gitdir: ${path.join(projectCwd, ".git", "worktrees", "branch")}\n`,
           );
+          const descendantCwd = path.join(worktreeCwd, "packages", "app");
+          yield* fileSystem.makeDirectory(descendantCwd, { recursive: true });
+          const descendantAlias = path.join(claudeHomePath, "descendant-alias");
+          yield* fileSystem.symlink(descendantCwd, descendantAlias);
           for (const [id, cwd] of [
             ["ordinary", projectCwd],
             ["worktree", worktreeCwd],
+            ["descendant", descendantCwd],
+            ["descendant-alias", descendantAlias],
           ] as const) {
             yield* writeTranscript({
               filePath: path.join(
@@ -1066,6 +1072,10 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
               ),
             ).toEqual(["ordinary"]);
             expect(yield* runRecentThreads({ ...input, workspaceRoot: worktreeCwd })).toEqual([]);
+            expect(yield* runRecentThreads({ ...input, workspaceRoot: descendantCwd })).toEqual([]);
+            expect(yield* runRecentThreads({ ...input, workspaceRoot: descendantAlias })).toEqual(
+              [],
+            );
           }
         }),
     );
