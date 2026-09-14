@@ -21,6 +21,7 @@ import { ChildProcess, ChildProcessSpawner } from "effect/unstable/process";
 
 import {
   GitCommandError,
+  type ProjectId,
   type ReviewDiffFileContentsInput,
   type ReviewDiffPreviewInput,
   type ReviewDiffPreviewSource,
@@ -3053,12 +3054,18 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
           )
             ? yield* projectRepository.value.listAll()
             : [];
-        const project = projects.find(
-          (entry) =>
-            entry.deletedAt === null &&
-            path.resolve(entry.workspaceRoot) === path.resolve(input.cwd),
-        );
-        const configured = resolveProjectSettings(settings, project?.projectId ?? null).settings
+        const canonicalPath = (root: string) =>
+          fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
+        const cwd = yield* canonicalPath(input.cwd);
+        let projectId: ProjectId | null = null;
+        for (const project of projects) {
+          if (project.deletedAt !== null) continue;
+          if ((yield* canonicalPath(project.workspaceRoot)) === cwd) {
+            projectId = project.projectId;
+            break;
+          }
+        }
+        const configured = resolveProjectSettings(settings, projectId).settings
           .worktreeBaseDirectory;
         if (configured === "") return worktreesDir;
         const expanded = expandHomePathWith(configured, path);

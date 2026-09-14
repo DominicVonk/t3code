@@ -22,6 +22,8 @@ it.effect(
       const root = yield* fs.makeTempDirectoryScoped({ prefix: "t3-worktree-location-" });
       const cwd = path.join(root, "repo");
       yield* fs.makeDirectory(cwd);
+      const alias = path.join(root, "repo-alias");
+      yield* fs.symlink(cwd, alias);
       const projectId = ProjectId.make("project");
       const settingsLayer = ServerSettings.layerTest();
       const missingRoot = path.join(root, "missing-checkout");
@@ -35,9 +37,9 @@ it.effect(
           Layer.mock(ProjectionProjectRepository)({
             listAll: () =>
               Effect.succeed(
-                [missingRoot, fileRoot, cwd].map((workspaceRoot) => ({
+                [missingRoot, fileRoot, alias].map((workspaceRoot) => ({
                   projectId:
-                    workspaceRoot === cwd
+                    workspaceRoot === alias
                       ? projectId
                       : ProjectId.make(path.basename(workspaceRoot)),
                   title: "Project",
@@ -94,6 +96,15 @@ it.effect(
         assert.strictEqual(
           (yield* create("override")).worktree.path,
           path.join(projectRoot, "repo", "override"),
+        );
+        assert.strictEqual(
+          (yield* git.createWorktree({
+            cwd: alias,
+            refName: "HEAD",
+            newRefName: "alias-override",
+            path: null,
+          })).worktree.path,
+          path.join(projectRoot, "repo-alias", "alias-override"),
         );
         const explicitPath = path.join(root, "explicit");
         assert.strictEqual((yield* create("explicit", explicitPath)).worktree.path, explicitPath);

@@ -1013,6 +1013,8 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
           const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
           const codexHomePath = yield* makeTempDir("t3code-codex-home-");
           const customRoot = yield* makeTempDir("custom-worktrees-");
+          const customRootAlias = path.join(claudeHomePath, "worktree-base-alias");
+          yield* fileSystem.symlink(customRoot, customRootAlias);
           const projectCwd = path.join(customRoot, "ordinary", "repo");
           const worktreeCwd = path.join(customRoot, "repo", "branch");
           yield* fileSystem.makeDirectory(path.join(projectCwd, ".git"), { recursive: true });
@@ -1046,6 +1048,7 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
           }
           for (const settings of [
             { worktreeBaseDirectory: customRoot },
+            { worktreeBaseDirectory: customRootAlias },
             {
               projectSettingsOverrides: {
                 [ProjectId.make("custom")]: { worktreeBaseDirectory: customRoot },
