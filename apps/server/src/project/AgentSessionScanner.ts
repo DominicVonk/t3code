@@ -646,22 +646,7 @@ export const make = Effect.gen(function* () {
     path.join(homeDir, "Documents", "Codex"),
   ];
 
-  const readWorktreeRoots = serverSettings.getSettings.pipe(
-    Effect.map((settings) =>
-      [
-        worktreesDir,
-        settings.worktreeBaseDirectory,
-        ...Object.values(settings.projectSettingsOverrides).map(
-          (entry) => entry.worktreeBaseDirectory ?? "",
-        ),
-      ]
-        .filter((root) => root !== "")
-        .map((root) => path.resolve(expandHomePath(root))),
-    ),
-    Effect.mapError((cause) => new AgentSessionScanError({ operation: "read-settings", cause })),
-  );
-
-  const isExcludedProjectPath = (candidatePath: string, worktreeRoots: ReadonlyArray<string>) =>
+  const isExcludedProjectPath = (candidatePath: string) =>
     excludedProjectRoots.has(normalizeProjectPathForComparison(candidatePath)) ||
     excludedProjectAncestors.some((ancestor) =>
       normalizeForWorktreeMatch(candidatePath, foldWorktreeCase).startsWith(
@@ -671,7 +656,7 @@ export const make = Effect.gen(function* () {
     normalizeForWorktreeMatch(candidatePath, foldWorktreeCase).startsWith(
       normalizeForWorktreeMatch(baseDir, foldWorktreeCase),
     ) ||
-    worktreeRoots.some((root) => isT3ManagedWorktree(candidatePath, root, foldWorktreeCase));
+    isT3ManagedWorktree(candidatePath, worktreesDir, foldWorktreeCase);
 
   const listDirectory = (directory: string) =>
     fileSystem.readDirectory(directory).pipe(Effect.orElseSucceed((): ReadonlyArray<string> => []));
@@ -1216,7 +1201,6 @@ export const make = Effect.gen(function* () {
   const scan: AgentSessionScanner["Service"]["scan"] = Effect.gen(function* () {
     const { candidates: raw, truncated } = yield* collectCandidates();
     cachedCandidates = raw;
-    const worktreeRoots = yield* readWorktreeRoots;
 
     // Filesystem identity merges symlinks and case aliases without collapsing
     // distinct case-sensitive directories.
@@ -1237,7 +1221,7 @@ export const make = Effect.gen(function* () {
       const expanded = expandHomePath(candidate.cwd.trim());
       if (!path.isAbsolute(expanded)) continue;
       const resolved = path.resolve(expanded);
-      if (isExcludedProjectPath(resolved, worktreeRoots)) continue;
+      if (isExcludedProjectPath(resolved)) continue;
       let key = directoryKeys.get(resolved);
       if (key === undefined) {
         const stats = yield* statOption(resolved);
@@ -1251,7 +1235,7 @@ export const make = Effect.gen(function* () {
           .pipe(Effect.orElseSucceed(() => resolved));
         // A symlink can point into the worktrees directory even when its own
         // spelling doesn't; check again with links resolved.
-        if (isExcludedProjectPath(realPath, worktreeRoots)) {
+        if (isExcludedProjectPath(realPath)) {
           key = "";
         } else {
           const gitIdentity = yield* readGitIdentity(resolved);
@@ -1345,14 +1329,12 @@ export const make = Effect.gen(function* () {
     workspaceRoot: string,
     completedSources: ReadonlyArray<AgentSessionImportSource>,
   ) {
-    const worktreeRoots = yield* readWorktreeRoots;
     const root = path.resolve(expandHomePath(workspaceRoot));
     const realRoot = yield* fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => root));
-    if (
-      isExcludedProjectPath(root, worktreeRoots) ||
-      isExcludedProjectPath(realRoot, worktreeRoots)
-    )
-      return Stream.empty;
+    if (isExcludedProjectPath(root) || isExcludedProjectPath(realRoot)) return Stream.empty;
+    // A custom base can also contain ordinary checkouts. Only Git metadata
+    // identifies linked worktrees there, including after the setting changes.
+    if ((yield* readGitIdentity(realRoot))._tag === "Worktree") return Stream.empty;
     const rootIdentity = yield* directoryIdentity(root);
     const nowMs = DateTime.toEpochMillis(yield* DateTime.now);
     const cutoffMs = nowMs - RECENT_THREAD_WINDOW_MS;

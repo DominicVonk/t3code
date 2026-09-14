@@ -24,18 +24,24 @@ it.effect(
       yield* fs.makeDirectory(cwd);
       const projectId = ProjectId.make("project");
       const settingsLayer = ServerSettings.layerTest();
-      const configLayer = ServerConfig.layerTest(cwd, path.join(root, "t3"));
+      const missingRoot = path.join(root, "missing-checkout");
+      const fileRoot = path.join(root, "not-a-directory");
+      yield* fs.writeFileString(fileRoot, "stale project path");
+      const configLayer = ServerConfig.layerTest(missingRoot, path.join(root, "t3"));
       const layer = GitVcsDriver.layer.pipe(
         Layer.provideMerge(settingsLayer),
         Layer.provideMerge(configLayer),
         Layer.provideMerge(
           Layer.mock(ProjectionProjectRepository)({
             listAll: () =>
-              Effect.succeed([
-                {
-                  projectId,
+              Effect.succeed(
+                [missingRoot, fileRoot, cwd].map((workspaceRoot) => ({
+                  projectId:
+                    workspaceRoot === cwd
+                      ? projectId
+                      : ProjectId.make(path.basename(workspaceRoot)),
                   title: "Project",
-                  workspaceRoot: cwd,
+                  workspaceRoot,
                   defaultModelSelection: null,
                   defaultThreadEnvMode: null,
                   autoPull: false,
@@ -43,8 +49,8 @@ it.effect(
                   createdAt: "2026-01-01T00:00:00.000Z",
                   updatedAt: "2026-01-01T00:00:00.000Z",
                   deletedAt: null,
-                },
-              ]),
+                })),
+              ),
           }),
         ),
       );

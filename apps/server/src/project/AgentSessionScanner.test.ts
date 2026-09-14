@@ -1002,33 +1002,69 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
       }),
     );
 
-    it.effect("excludes custom environment and project worktree locations from discovery", () =>
-      Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const fileSystem = yield* FileSystem.FileSystem;
-        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
-        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
-        const customRoot = yield* makeTempDir("custom-worktrees-");
-        const worktreeCwd = path.join(customRoot, "repo", "branch");
-        yield* fileSystem.makeDirectory(worktreeCwd, { recursive: true });
-        yield* writeTranscript({
-          filePath: path.join(claudeHomePath, "projects", "-slug", "a.jsonl"),
-          contents: claudeSessionLine(worktreeCwd),
-          mtimeMs: Date.parse("2026-01-01T00:00:00.000Z"),
-        });
-        for (const settings of [
-          { worktreeBaseDirectory: customRoot },
-          {
-            projectSettingsOverrides: {
-              [ProjectId.make("custom")]: { worktreeBaseDirectory: customRoot },
+    it.effect(
+      "keeps ordinary projects under custom worktree bases while excluding linked worktrees",
+      () =>
+        Effect.gen(function* () {
+          const path = yield* Path.Path;
+          const fileSystem = yield* FileSystem.FileSystem;
+          const nowMs = Date.parse("2026-08-24T12:00:00.000Z");
+          yield* TestClock.setTime(nowMs);
+          const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+          const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+          const customRoot = yield* makeTempDir("custom-worktrees-");
+          const projectCwd = path.join(customRoot, "ordinary", "repo");
+          const worktreeCwd = path.join(customRoot, "repo", "branch");
+          yield* fileSystem.makeDirectory(path.join(projectCwd, ".git"), { recursive: true });
+          yield* fileSystem.makeDirectory(worktreeCwd, { recursive: true });
+          yield* fileSystem.writeFileString(
+            path.join(worktreeCwd, ".git"),
+            `gitdir: ${path.join(projectCwd, ".git", "worktrees", "branch")}\n`,
+          );
+          for (const [id, cwd] of [
+            ["ordinary", projectCwd],
+            ["worktree", worktreeCwd],
+          ] as const) {
+            yield* writeTranscript({
+              filePath: path.join(
+                codexHomePath,
+                "sessions",
+                "2026",
+                "08",
+                "24",
+                `rollout-${id}.jsonl`,
+              ),
+              contents: [
+                encodeTranscriptRecord({ type: "session_meta", payload: { id, cwd } }),
+                encodeTranscriptRecord({
+                  type: "event_msg",
+                  payload: { type: "user_message", message: "Review this project" },
+                }),
+              ].join("\n"),
+              mtimeMs: nowMs,
+            });
+          }
+          for (const settings of [
+            { worktreeBaseDirectory: customRoot },
+            {
+              projectSettingsOverrides: {
+                [ProjectId.make("custom")]: { worktreeBaseDirectory: customRoot },
+              },
             },
-          },
-        ]) {
-          const input = { claudeHomePath, codexHomePath, ...settings };
-          expect((yield* runScan(input)).candidates).toEqual([]);
-          expect(yield* runRecentThreads({ ...input, workspaceRoot: worktreeCwd })).toEqual([]);
-        }
-      }),
+            { worktreeBaseDirectory: "" },
+          ]) {
+            const input = { claudeHomePath, codexHomePath, ...settings };
+            expect((yield* runScan(input)).candidates.map((candidate) => candidate.path)).toEqual([
+              projectCwd,
+            ]);
+            expect(
+              (yield* runRecentThreads({ ...input, workspaceRoot: projectCwd })).map(
+                (thread) => thread.providerSessionId,
+              ),
+            ).toEqual(["ordinary"]);
+            expect(yield* runRecentThreads({ ...input, workspaceRoot: worktreeCwd })).toEqual([]);
+          }
+        }),
     );
 
     it.effect("excludes sandboxes reached through a symlink into the worktrees dir", () =>

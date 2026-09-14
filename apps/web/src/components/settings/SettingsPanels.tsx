@@ -2794,7 +2794,7 @@ export function GeneralSettingsPanel() {
           {...searchableSetting("worktree-location")}
           description="Base folder on the server for new worktrees, grouped by project and branch. Use an absolute path or ~/. Leave empty for the T3 home worktrees folder. Existing worktrees stay in place."
           resetAction={
-            settings.worktreeBaseDirectory !== "" ? (
+            mixedWorktreeBaseDirectory || settings.worktreeBaseDirectory !== "" ? (
               <SettingResetButton
                 label="worktree location"
                 onClick={() => updateSettings({ worktreeBaseDirectory: "" })}

@@ -127,6 +127,22 @@ export const make = Effect.gen(function* () {
           .map((project) => project.workspaceRoot),
       ]);
       for (const repositoryRoot of repositoryRoots) {
+        const info = yield* fileSystem.stat(repositoryRoot).pipe(
+          Effect.catchTags({
+            PlatformError: (cause) =>
+              cause.reason._tag === "NotFound"
+                ? Effect.succeed(null)
+                : Effect.fail(
+                    new VcsRepositoryDetectionError({
+                      operation,
+                      cwd: repositoryRoot,
+                      detail: "Failed to inspect a project worktree root.",
+                      cause,
+                    }),
+                  ),
+          }),
+        );
+        if (info === null || info.type !== "Directory") continue;
         const registered = yield* git.execute({
           operation,
           cwd: repositoryRoot,
