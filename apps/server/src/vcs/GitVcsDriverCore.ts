@@ -3042,7 +3042,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
   )(function* (input, options) {
     const targetBranch = input.newRefName ?? input.refName;
     const sanitizedBranch = targetBranch.replace(/\//g, "-");
-    const repoName = path.basename(input.cwd);
+    let repoName = path.basename(input.cwd);
     let baseDirectory = worktreesDir;
     let flatLayout = false;
     if (input.path == null && Option.isSome(settingsService)) {
@@ -3059,10 +3059,24 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
         const canonicalPath = (root: string) =>
           fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
         const cwd = yield* canonicalPath(input.cwd);
+        let repositoryRoot = cwd;
+        if (projects.length > 0) {
+          const result = yield* executeGit(
+            "GitVcsDriver.createWorktree.repositoryRoot",
+            input.cwd,
+            ["rev-parse", "--show-toplevel"],
+            { allowNonZeroExit: true },
+          );
+          if (result.exitCode === 0 && result.stdout.trim() !== "") {
+            repositoryRoot = yield* canonicalPath(result.stdout.trim());
+            if (repositoryRoot !== cwd) repoName = path.basename(repositoryRoot);
+          }
+        }
         let projectId: ProjectId | null = null;
         for (const project of projects) {
           if (project.deletedAt !== null) continue;
-          if ((yield* canonicalPath(project.workspaceRoot)) === cwd) {
+          const workspaceRoot = yield* canonicalPath(project.workspaceRoot);
+          if (workspaceRoot === cwd || workspaceRoot === repositoryRoot) {
             projectId = project.projectId;
             break;
           }

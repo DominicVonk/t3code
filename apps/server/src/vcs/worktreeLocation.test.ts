@@ -146,6 +146,25 @@ it.effect(
           (yield* create("flat-override")).worktree.path,
           path.join(environmentRoot, "repo-flat-override"),
         );
+        yield* settings.updateSettings({
+          projectSettingsOverrides: {
+            [projectId]: { worktreeBaseDirectory: projectRoot, worktreePathLayout: "flat" },
+          },
+        });
+        const descendant = path.join(cwd, "packages", "app");
+        yield* fs.makeDirectory(descendant, { recursive: true });
+        for (const descendantCwd of [descendant, path.join(alias, "packages", "app")]) {
+          const branch = descendantCwd === descendant ? "descendant" : "descendant-alias";
+          assert.strictEqual(
+            (yield* git.createWorktree({
+              cwd: descendantCwd,
+              refName: "HEAD",
+              newRefName: branch,
+              path: null,
+            })).worktree.path,
+            path.join(projectRoot, `repo-${branch}`),
+          );
+        }
         const flatExplicitPath = path.join(root, "flat-explicit");
         assert.strictEqual(
           (yield* create("flat-explicit", flatExplicitPath)).worktree.path,
