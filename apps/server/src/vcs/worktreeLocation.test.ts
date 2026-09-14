@@ -125,6 +125,38 @@ it.effect(
           (yield* create("reset")).worktree.path,
           path.join(config.worktreesDir, "repo", "reset"),
         );
+        yield* settings.updateSettings({ worktreePathLayout: "flat" });
+        assert.strictEqual(
+          (yield* create("feature/flat")).worktree.path,
+          path.join(config.worktreesDir, "repo-feature-flat"),
+        );
+        yield* settings.updateSettings({
+          projectSettingsOverrides: { [projectId]: { worktreePathLayout: "nested" } },
+        });
+        assert.strictEqual(
+          (yield* create("nested-override")).worktree.path,
+          path.join(config.worktreesDir, "repo", "nested-override"),
+        );
+        yield* settings.updateSettings({
+          worktreePathLayout: "nested",
+          worktreeBaseDirectory: environmentRoot,
+          projectSettingsOverrides: { [projectId]: { worktreePathLayout: "flat" } },
+        });
+        assert.strictEqual(
+          (yield* create("flat-override")).worktree.path,
+          path.join(environmentRoot, "repo-flat-override"),
+        );
+        const flatExplicitPath = path.join(root, "flat-explicit");
+        assert.strictEqual(
+          (yield* create("flat-explicit", flatExplicitPath)).worktree.path,
+          flatExplicitPath,
+        );
+        yield* settings.updateSettings({ projectSettingsOverrides: { [projectId]: null } });
+        assert.strictEqual(
+          (yield* create("layout-inherited")).worktree.path,
+          path.join(environmentRoot, "repo", "layout-inherited"),
+        );
+        yield* settings.updateSettings({ worktreeBaseDirectory: "" });
         assert.isTrue(yield* fs.exists(original.worktree.path));
         assert.isTrue(yield* fs.exists(environment.worktree.path));
         const review = yield* ReviewService.make.pipe(

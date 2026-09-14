@@ -1010,8 +1010,12 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       const next = yield* serverSettings.updateSettings({
         addProjectBaseDirectory: "~/Development",
         worktreeBaseDirectory: "~/Worktrees",
+        worktreePathLayout: "flat",
         projectSettingsOverrides: {
-          [ProjectId.make("project")]: { worktreeBaseDirectory: "/srv/project-worktrees" },
+          [ProjectId.make("project")]: {
+            worktreeBaseDirectory: "/srv/project-worktrees",
+            worktreePathLayout: "nested",
+          },
         },
         observability: {
           otlpTracesUrl: "http://localhost:4318/v1/traces",
@@ -1036,8 +1040,12 @@ it.layer(NodeServices.layer)("server settings", (it) => {
       assert.deepEqual(JSON.parse(raw), {
         addProjectBaseDirectory: "~/Development",
         worktreeBaseDirectory: "~/Worktrees",
+        worktreePathLayout: "flat",
         projectSettingsOverrides: {
-          [ProjectId.make("project")]: { worktreeBaseDirectory: "/srv/project-worktrees" },
+          [ProjectId.make("project")]: {
+            worktreeBaseDirectory: "/srv/project-worktrees",
+            worktreePathLayout: "nested",
+          },
         },
         observability: {
           otlpTracesUrl: "http://localhost:4318/v1/traces",

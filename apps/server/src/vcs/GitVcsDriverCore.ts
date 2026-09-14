@@ -3044,13 +3044,15 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     const sanitizedBranch = targetBranch.replace(/\//g, "-");
     const repoName = path.basename(input.cwd);
     let baseDirectory = worktreesDir;
+    let flatLayout = false;
     if (input.path == null && Option.isSome(settingsService)) {
       baseDirectory = yield* Effect.gen(function* () {
         const settings = yield* settingsService.value.getSettings;
         const projects =
           Option.isSome(projectRepository) &&
           Object.values(settings.projectSettingsOverrides).some(
-            (entry) => entry.worktreeBaseDirectory !== undefined,
+            (entry) =>
+              entry.worktreeBaseDirectory !== undefined || entry.worktreePathLayout !== undefined,
           )
             ? yield* projectRepository.value.listAll()
             : [];
@@ -3065,8 +3067,9 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
             break;
           }
         }
-        const configured = resolveProjectSettings(settings, projectId).settings
-          .worktreeBaseDirectory;
+        const effective = resolveProjectSettings(settings, projectId).settings;
+        flatLayout = effective.worktreePathLayout === "flat";
+        const configured = effective.worktreeBaseDirectory;
         if (configured === "") return worktreesDir;
         const expanded = expandHomePathWith(configured, path);
         if (!path.isAbsolute(expanded)) {
@@ -3092,7 +3095,11 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
         ),
       );
     }
-    const worktreePath = input.path ?? path.join(baseDirectory, repoName, sanitizedBranch);
+    const worktreePath =
+      input.path ??
+      (flatLayout
+        ? path.join(baseDirectory, `${repoName}-${sanitizedBranch}`)
+        : path.join(baseDirectory, repoName, sanitizedBranch));
     const args = input.newRefName
       ? ["worktree", "add", "-b", input.newRefName, worktreePath, input.refName]
       : ["worktree", "add", worktreePath, input.refName];

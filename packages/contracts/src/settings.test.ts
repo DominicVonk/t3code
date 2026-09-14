@@ -876,6 +876,7 @@ it("validates remote device hosts and rejects ambiguous host ids", () => {
 describe("worktree locations", () => {
   it("defaults older settings to the T3 worktrees directory", () => {
     expect(decodeServerSettings({}).worktreeBaseDirectory).toBe("");
+    expect(decodeServerSettings({}).worktreePathLayout).toBe("nested");
   });
 
   it.each(["", "/srv/worktrees", "~/worktrees", "C:\\worktrees", "\\\\server\\worktrees"])(

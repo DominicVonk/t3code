@@ -59,8 +59,9 @@ local work, resolve it yourself before automatic pulls can resume.
 ## Worktree location
 
 In **General → Worktree location**, choose a base folder on the environment's server for new
-worktrees. Use an absolute path or `~/` for the server user's home directory. Worktrees are
-created beneath it in project and branch folders. Leave it empty to use the worktrees folder
+worktrees. Use an absolute path or `~/` for the server user's home directory. Leave it empty to use the worktrees folder
 under T3 home. Select a project to override the environment default, or reset its override to
 inherit again. This applies to worktrees created from any client, including pull-request threads.
 Changing the location does not move existing worktrees.
+
+Choose **Worktree layout** to create new worktrees as `<repo-name>/<branch>` (the default) or `<repo-name>-<branch>` beneath the worktree location. The layout supports environment defaults and project overrides. Slashes in branch names become hyphens. Existing worktrees keep their paths.

@@ -603,6 +603,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       ...(settings.worktreeBaseDirectory !== DEFAULT_UNIFIED_SETTINGS.worktreeBaseDirectory
         ? ["Worktree location"]
         : []),
+      ...(settings.worktreePathLayout !== DEFAULT_UNIFIED_SETTINGS.worktreePathLayout
+        ? ["Worktree layout"]
+        : []),
       ...(settings.addProjectBaseDirectory !== DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory
         ? ["Add project base directory"]
         : []),
@@ -640,6 +643,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.confirmThreadUnpin,
       settings.composerCollapseOnScroll,
       settings.worktreeBaseDirectory,
+      settings.worktreePathLayout,
       settings.addProjectBaseDirectory,
       settings.defaultThreadEnvMode,
       settings.newWorktreesStartFromOrigin,
@@ -770,6 +774,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       defaultThreadEnvMode: DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode,
       newWorktreesStartFromOrigin: DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin,
       worktreeBaseDirectory: DEFAULT_UNIFIED_SETTINGS.worktreeBaseDirectory,
+      worktreePathLayout: DEFAULT_UNIFIED_SETTINGS.worktreePathLayout,
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
@@ -2154,6 +2159,7 @@ export function GeneralSettingsPanel() {
   const activeBackgroundActivityProfile = resolvedBackgroundActivity.profile;
   const backgroundActivityProfileOption = resolveBackgroundActivityProfileOption(settings);
   const mixedBackgroundActivity = useScopedSettingsMixed(["backgroundActivity"]);
+  const mixedWorktreePathLayout = useScopedSettingsMixed(["worktreePathLayout"]);
   const mixedWorktreeBaseDirectory = useScopedSettingsMixed(["worktreeBaseDirectory"]);
   const mixedAddProjectBaseDirectory = useScopedSettingsMixed(["addProjectBaseDirectory"]);
   const mixedTextGenerationModel = useScopedSettingsMixed(["textGenerationModelSelection"]);
@@ -2811,6 +2817,45 @@ export function GeneralSettingsPanel() {
               spellCheck={false}
               aria-label="Worktree location"
             />
+          }
+        />
+        <SettingsRow
+          serverScoped
+          settingKeys={["worktreePathLayout"]}
+          {...searchableSetting("worktree-layout")}
+          description="Folder layout beneath the worktree location. Applies to new worktrees only. Slashes in branch names become hyphens."
+          resetAction={
+            mixedWorktreePathLayout || settings.worktreePathLayout !== "nested" ? (
+              <SettingResetButton
+                label="worktree layout"
+                onClick={() => updateSettings({ worktreePathLayout: "nested" })}
+              />
+            ) : null
+          }
+          control={
+            <Select
+              value={mixedWorktreePathLayout ? null : settings.worktreePathLayout}
+              onValueChange={(value) => {
+                if (value === "nested" || value === "flat")
+                  updateSettings({ worktreePathLayout: value });
+              }}
+            >
+              <SelectTrigger size="sm" className="w-full sm:w-72" aria-label="Worktree layout">
+                <SelectValue>
+                  {(value: "nested" | "flat" | null) =>
+                    value === null
+                      ? "Mixed"
+                      : value === "flat"
+                        ? "<repo-name>-<branch>"
+                        : "<repo-name>/<branch>"
+                  }
+                </SelectValue>
+              </SelectTrigger>
+              <SelectPopup align="end" alignItemWithTrigger={false}>
+                <SelectItem value="nested">{"<repo-name>/<branch>"}</SelectItem>
+                <SelectItem value="flat">{"<repo-name>-<branch>"}</SelectItem>
+              </SelectPopup>
+            </Select>
           }
         />
         <SettingsRow
