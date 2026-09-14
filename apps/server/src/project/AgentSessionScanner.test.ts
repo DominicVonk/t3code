@@ -75,6 +75,8 @@ interface ScannerTestInput {
   readonly importedWorkspaceRoots?: ReadonlyArray<string>;
   /** Base dir for the test ServerConfig; worktreesDir derives from it. */
   readonly configBaseDir?: string;
+  readonly worktreeBaseDirectory?: string;
+  readonly projectSettingsOverrides?: ContractServerSettings["projectSettingsOverrides"];
   readonly providerInstances?: ContractServerSettings["providerInstances"];
 }
 
@@ -83,6 +85,8 @@ const makeScannerTestLayer = (input: ScannerTestInput) =>
     Layer.provide(
       Layer.mergeAll(
         ServerSettings.layerTest({
+          worktreeBaseDirectory: input.worktreeBaseDirectory ?? "",
+          projectSettingsOverrides: input.projectSettingsOverrides ?? {},
           providers: {
             claudeAgent: { homePath: input.claudeHomePath },
             codex: { homePath: input.codexHomePath },
@@ -995,6 +999,35 @@ it.layer(NodeServices.layer)("AgentSessionScanner", (it) => {
         const result = yield* runScan({ claudeHomePath, codexHomePath, configBaseDir });
 
         expect(result.candidates).toEqual([]);
+      }),
+    );
+
+    it.effect("excludes custom environment and project worktree locations from discovery", () =>
+      Effect.gen(function* () {
+        const path = yield* Path.Path;
+        const fileSystem = yield* FileSystem.FileSystem;
+        const claudeHomePath = yield* makeTempDir("t3code-claude-home-");
+        const codexHomePath = yield* makeTempDir("t3code-codex-home-");
+        const customRoot = yield* makeTempDir("custom-worktrees-");
+        const worktreeCwd = path.join(customRoot, "repo", "branch");
+        yield* fileSystem.makeDirectory(worktreeCwd, { recursive: true });
+        yield* writeTranscript({
+          filePath: path.join(claudeHomePath, "projects", "-slug", "a.jsonl"),
+          contents: claudeSessionLine(worktreeCwd),
+          mtimeMs: Date.parse("2026-01-01T00:00:00.000Z"),
+        });
+        for (const settings of [
+          { worktreeBaseDirectory: customRoot },
+          {
+            projectSettingsOverrides: {
+              [ProjectId.make("custom")]: { worktreeBaseDirectory: customRoot },
+            },
+          },
+        ]) {
+          const input = { claudeHomePath, codexHomePath, ...settings };
+          expect((yield* runScan(input)).candidates).toEqual([]);
+          expect(yield* runRecentThreads({ ...input, workspaceRoot: worktreeCwd })).toEqual([]);
+        }
       }),
     );
 

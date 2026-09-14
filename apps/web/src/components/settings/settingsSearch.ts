@@ -338,6 +338,13 @@ export const SETTINGS_SEARCH_ITEMS = [
     searchTerms: ["new worktrees latest matching remote branch local"],
   },
   {
+    id: "worktree-location",
+    title: "Worktree location",
+    to: "/settings/general",
+    scope: "project-defaults",
+    searchTerms: ["worktrees base directory folder path storage"],
+  },
+  {
     id: "add-project-starts-in",
     title: "Add project starts in",
     to: "/settings/general",

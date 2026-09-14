@@ -37,6 +37,10 @@ import {
   parseRemoteRefWithRemoteNames,
 } from "../git/remoteRefs.ts";
 import { ServerConfig } from "../config.ts";
+import { ServerSettingsService } from "../serverSettings.ts";
+import { ProjectionProjectRepository } from "../persistence/Services/ProjectionProjects.ts";
+import { expandHomePathWith } from "../pathExpansion.ts";
+import { resolveProjectSettings } from "@t3tools/shared/projectSettings";
 
 const DEFAULT_TIMEOUT_MS = 30_000;
 // `git worktree add` checks out the full tree, so on large repositories it can
@@ -747,6 +751,9 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
   const path = yield* Path.Path;
   const commandSpawner = yield* ChildProcessSpawner.ChildProcessSpawner;
   const { worktreesDir } = yield* ServerConfig;
+  // Standalone Git driver consumers can run without the settings runtime or projects.
+  const settingsService = yield* Effect.serviceOption(ServerSettingsService);
+  const projectRepository = yield* Effect.serviceOption(ProjectionProjectRepository);
   const crypto = yield* Crypto.Crypto;
 
   const executeRaw: GitVcsDriver.GitVcsDriver["Service"]["execute"] = Effect.fnUntraced(
@@ -3035,7 +3042,50 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     const targetBranch = input.newRefName ?? input.refName;
     const sanitizedBranch = targetBranch.replace(/\//g, "-");
     const repoName = path.basename(input.cwd);
-    const worktreePath = input.path ?? path.join(worktreesDir, repoName, sanitizedBranch);
+    let baseDirectory = worktreesDir;
+    if (input.path == null && Option.isSome(settingsService)) {
+      baseDirectory = yield* Effect.gen(function* () {
+        const settings = yield* settingsService.value.getSettings;
+        const projects =
+          Option.isSome(projectRepository) &&
+          Object.values(settings.projectSettingsOverrides).some(
+            (entry) => entry.worktreeBaseDirectory !== undefined,
+          )
+            ? yield* projectRepository.value.listAll()
+            : [];
+        const project = projects.find(
+          (entry) =>
+            entry.deletedAt === null &&
+            path.resolve(entry.workspaceRoot) === path.resolve(input.cwd),
+        );
+        const configured = resolveProjectSettings(settings, project?.projectId ?? null).settings
+          .worktreeBaseDirectory;
+        if (configured === "") return worktreesDir;
+        const expanded = expandHomePathWith(configured, path);
+        if (!path.isAbsolute(expanded)) {
+          return yield* new GitCommandError({
+            operation: "GitVcsDriver.createWorktree",
+            command: "git worktree add",
+            cwd: input.cwd,
+            detail: "Worktree location must be an absolute path or start with ~/.",
+          });
+        }
+        return expanded;
+      }).pipe(
+        Effect.mapError((cause) =>
+          cause._tag === "GitCommandError"
+            ? cause
+            : new GitCommandError({
+                operation: "GitVcsDriver.createWorktree",
+                command: "git worktree add",
+                cwd: input.cwd,
+                detail: "Failed to resolve the worktree location.",
+                cause,
+              }),
+        ),
+      );
+    }
+    const worktreePath = input.path ?? path.join(baseDirectory, repoName, sanitizedBranch);
     const args = input.newRefName
       ? ["worktree", "add", "-b", input.newRefName, worktreePath, input.refName]
       : ["worktree", "add", worktreePath, input.refName];

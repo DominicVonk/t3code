@@ -959,11 +959,17 @@ export type BackgroundActivitySettings = typeof BackgroundActivitySettings.Type;
 export const ResponseStreamingMode = Schema.Literals(["turn", "paragraph", "token"]);
 export type ResponseStreamingMode = typeof ResponseStreamingMode.Type;
 
+/** Host filesystem paths: absolute (POSIX or Windows), home-relative, or the default. */
+export const WorktreeBaseDirectory = TrimmedString.check(
+  Schema.isPattern(/^\s*(?:$|~(?:[\\/]|$)|\/|[A-Za-z]:[\\/]|\\\\)/),
+);
+
 export const PROJECT_SCOPED_SERVER_SETTING_KEYS = [
   "defaultModelSelection",
   "defaultRuntimeMode",
   "defaultThreadEnvMode",
   "newWorktreesStartFromOrigin",
+  "worktreeBaseDirectory",
   "defaultAutoPull",
   "defaultProjectScripts",
   "enableAgentBrowserAccess",
@@ -989,6 +995,7 @@ export const ProjectSettingsOverrides = Schema.Struct({
   defaultRuntimeMode: Schema.optionalKey(RuntimeMode),
   defaultThreadEnvMode: Schema.optionalKey(ThreadEnvMode),
   newWorktreesStartFromOrigin: Schema.optionalKey(Schema.Boolean),
+  worktreeBaseDirectory: Schema.optionalKey(WorktreeBaseDirectory),
   defaultAutoPull: Schema.optionalKey(Schema.Boolean),
   defaultProjectScripts: Schema.optionalKey(Schema.Array(ProjectScript)),
   enableAgentBrowserAccess: Schema.optionalKey(Schema.Boolean),
@@ -1127,6 +1134,7 @@ export const ServerSettings = Schema.Struct({
   newWorktreesStartFromOrigin: Schema.Boolean.pipe(
     Schema.withDecodingDefault(Effect.succeed(true)),
   ),
+  worktreeBaseDirectory: WorktreeBaseDirectory.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   addProjectBaseDirectory: TrimmedString.pipe(Schema.withDecodingDefault(Effect.succeed(""))),
   textGenerationModelSelection: ModelSelection.pipe(
     Schema.withDecodingDefault(
@@ -1392,6 +1400,7 @@ export const ServerSettingsPatch = Schema.Struct({
   environmentIcon: Schema.optionalKey(Schema.NullOr(EnvironmentMachineKind)),
   defaultThreadEnvMode: Schema.optionalKey(ThreadEnvMode),
   newWorktreesStartFromOrigin: Schema.optionalKey(Schema.Boolean),
+  worktreeBaseDirectory: Schema.optionalKey(WorktreeBaseDirectory),
   addProjectBaseDirectory: Schema.optionalKey(TrimmedString),
   textGenerationModelSelection: Schema.optionalKey(ModelSelectionPatch),
   sourceControlWritingStyle: Schema.optionalKey(

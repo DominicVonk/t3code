@@ -600,6 +600,9 @@ export function useSettingsRestore(onRestored?: () => void) {
       DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin
         ? ["New worktrees start from origin"]
         : []),
+      ...(settings.worktreeBaseDirectory !== DEFAULT_UNIFIED_SETTINGS.worktreeBaseDirectory
+        ? ["Worktree location"]
+        : []),
       ...(settings.addProjectBaseDirectory !== DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory
         ? ["Add project base directory"]
         : []),
@@ -636,6 +639,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       settings.confirmThreadDelete,
       settings.confirmThreadUnpin,
       settings.composerCollapseOnScroll,
+      settings.worktreeBaseDirectory,
       settings.addProjectBaseDirectory,
       settings.defaultThreadEnvMode,
       settings.newWorktreesStartFromOrigin,
@@ -765,6 +769,7 @@ export function useSettingsRestore(onRestored?: () => void) {
       providerHealthRefreshInterval: DEFAULT_UNIFIED_SETTINGS.providerHealthRefreshInterval,
       defaultThreadEnvMode: DEFAULT_UNIFIED_SETTINGS.defaultThreadEnvMode,
       newWorktreesStartFromOrigin: DEFAULT_UNIFIED_SETTINGS.newWorktreesStartFromOrigin,
+      worktreeBaseDirectory: DEFAULT_UNIFIED_SETTINGS.worktreeBaseDirectory,
       addProjectBaseDirectory: DEFAULT_UNIFIED_SETTINGS.addProjectBaseDirectory,
       confirmThreadArchive: DEFAULT_UNIFIED_SETTINGS.confirmThreadArchive,
       confirmThreadDelete: DEFAULT_UNIFIED_SETTINGS.confirmThreadDelete,
@@ -2149,6 +2154,7 @@ export function GeneralSettingsPanel() {
   const activeBackgroundActivityProfile = resolvedBackgroundActivity.profile;
   const backgroundActivityProfileOption = resolveBackgroundActivityProfileOption(settings);
   const mixedBackgroundActivity = useScopedSettingsMixed(["backgroundActivity"]);
+  const mixedWorktreeBaseDirectory = useScopedSettingsMixed(["worktreeBaseDirectory"]);
   const mixedAddProjectBaseDirectory = useScopedSettingsMixed(["addProjectBaseDirectory"]);
   const mixedTextGenerationModel = useScopedSettingsMixed(["textGenerationModelSelection"]);
   const backgroundActivityDescription =
@@ -2779,6 +2785,31 @@ export function GeneralSettingsPanel() {
                 updateSettings({ newWorktreesStartFromOrigin: Boolean(checked) })
               }
               aria-label="Start new worktrees from origin by default"
+            />
+          }
+        />
+        <SettingsRow
+          serverScoped
+          settingKeys={["worktreeBaseDirectory"]}
+          {...searchableSetting("worktree-location")}
+          description="Base folder on the server for new worktrees, grouped by project and branch. Use an absolute path or ~/. Leave empty for the T3 home worktrees folder. Existing worktrees stay in place."
+          resetAction={
+            settings.worktreeBaseDirectory !== "" ? (
+              <SettingResetButton
+                label="worktree location"
+                onClick={() => updateSettings({ worktreeBaseDirectory: "" })}
+              />
+            ) : null
+          }
+          control={
+            <DraftInput
+              size="sm"
+              className="w-full sm:w-72"
+              value={mixedWorktreeBaseDirectory ? "" : settings.worktreeBaseDirectory}
+              onCommit={(next) => updateSettings({ worktreeBaseDirectory: next })}
+              placeholder={mixedWorktreeBaseDirectory ? "Mixed" : "Default worktrees folder"}
+              spellCheck={false}
+              aria-label="Worktree location"
             />
           }
         />
