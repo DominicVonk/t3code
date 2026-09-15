@@ -8205,6 +8205,7 @@ export default function ChatView(props: ChatViewProps) {
   // stable and does not bust TimelineRowCtx on every ChatView render.
   const queuedMessageActionsRef = useRef({
     steer: (_id: string) => {},
+    edit: (_id: string) => {},
     remove: (_id: string) => {},
   });
   queuedMessageActionsRef.current = {
@@ -8216,7 +8217,17 @@ export default function ChatView(props: ChatViewProps) {
     remove: (id) => {
       if (!activeThreadKey) return;
       const message = useQueuedMessageStore.getState().remove(activeThreadKey, id);
-      if (message) restoreQueuedMessagesToComposer([message]);
+      for (const image of message?.images ?? []) {
+        revokeBlobPreviewUrl(image.previewUrl);
+      }
+    },
+    edit: (id) => {
+      if (!activeThreadKey) return;
+      const message = useQueuedMessageStore.getState().remove(activeThreadKey, id);
+      if (message) {
+        restoreQueuedMessagesToComposer([message]);
+        focusComposer();
+      }
     },
   };
   const onSteerQueuedMessage = useCallback((id: string) => {
@@ -8224,6 +8235,9 @@ export default function ChatView(props: ChatViewProps) {
   }, []);
   const onRemoveQueuedMessage = useCallback((id: string) => {
     queuedMessageActionsRef.current.remove(id);
+  }, []);
+  const onEditQueuedMessage = useCallback((id: string) => {
+    queuedMessageActionsRef.current.edit(id);
   }, []);
   // Stop also cancels the queue: the messages return to the composer instead
   // of starting a new turn the moment the interrupted one settles.
@@ -9501,6 +9515,7 @@ export default function ChatView(props: ChatViewProps) {
                 loadEarlier={paintOnlyDisplayedTimeline ? null : loadEarlierTurns}
                 queuedMessages={paintOnlyDisplayedTimeline ? EMPTY_QUEUED_MESSAGES : queuedMessages}
                 onSteerQueuedMessage={onSteerQueuedMessage}
+                onEditQueuedMessage={onEditQueuedMessage}
                 onRemoveQueuedMessage={onRemoveQueuedMessage}
               />
 
