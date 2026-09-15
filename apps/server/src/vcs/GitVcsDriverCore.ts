@@ -3045,6 +3045,23 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
     let repoName = path.basename(input.cwd);
     let baseDirectory = worktreesDir;
     let flatLayout = false;
+    const canonicalPath = (root: string) =>
+      fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
+    let repositoryRoot = path.resolve(input.cwd);
+    if (input.path == null) {
+      const cwd = yield* canonicalPath(input.cwd);
+      repositoryRoot = cwd;
+      const result = yield* executeGit(
+        "GitVcsDriver.createWorktree.repositoryRoot",
+        input.cwd,
+        ["rev-parse", "--show-toplevel"],
+        { allowNonZeroExit: true },
+      );
+      if (result.exitCode === 0 && result.stdout.trim() !== "") {
+        repositoryRoot = yield* canonicalPath(result.stdout.trim());
+        if (repositoryRoot !== cwd) repoName = path.basename(repositoryRoot);
+      }
+    }
     if (input.path == null && Option.isSome(settingsService)) {
       baseDirectory = yield* Effect.gen(function* () {
         const settings = yield* settingsService.value.getSettings;
@@ -3056,22 +3073,7 @@ export const makeGitVcsDriverCore = Effect.fn("makeGitVcsDriverCore")(function* 
           )
             ? yield* projectRepository.value.listAll()
             : [];
-        const canonicalPath = (root: string) =>
-          fileSystem.realPath(root).pipe(Effect.orElseSucceed(() => path.resolve(root)));
         const cwd = yield* canonicalPath(input.cwd);
-        let repositoryRoot = cwd;
-        if (projects.length > 0) {
-          const result = yield* executeGit(
-            "GitVcsDriver.createWorktree.repositoryRoot",
-            input.cwd,
-            ["rev-parse", "--show-toplevel"],
-            { allowNonZeroExit: true },
-          );
-          if (result.exitCode === 0 && result.stdout.trim() !== "") {
-            repositoryRoot = yield* canonicalPath(result.stdout.trim());
-            if (repositoryRoot !== cwd) repoName = path.basename(repositoryRoot);
-          }
-        }
         let projectId: ProjectId | null = null;
         for (const project of projects) {
           if (project.deletedAt !== null) continue;

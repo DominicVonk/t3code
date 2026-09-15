@@ -70,6 +70,17 @@ it.effect(
         }
         const create = (name: string, explicitPath: string | null = null) =>
           git.createWorktree({ cwd, refName: "HEAD", newRefName: name, path: explicitPath });
+        const defaultDescendant = path.join(cwd, "packages", "default-app");
+        yield* fs.makeDirectory(defaultDescendant, { recursive: true });
+        assert.strictEqual(
+          (yield* git.createWorktree({
+            cwd: defaultDescendant,
+            refName: "HEAD",
+            newRefName: "default-descendant",
+            path: null,
+          })).worktree.path,
+          path.join(config.worktreesDir, "repo", "default-descendant"),
+        );
         const original = yield* create("original");
         assert.strictEqual(
           original.worktree.path,
@@ -126,6 +137,15 @@ it.effect(
           path.join(config.worktreesDir, "repo", "reset"),
         );
         yield* settings.updateSettings({ worktreePathLayout: "flat" });
+        assert.strictEqual(
+          (yield* git.createWorktree({
+            cwd: defaultDescendant,
+            refName: "HEAD",
+            newRefName: "flat-default-descendant",
+            path: null,
+          })).worktree.path,
+          path.join(config.worktreesDir, "repo-flat-default-descendant"),
+        );
         assert.strictEqual(
           (yield* create("feature/flat")).worktree.path,
           path.join(config.worktreesDir, "repo-feature-flat"),
