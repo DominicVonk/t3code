@@ -104,6 +104,17 @@ describe("buildTraitsTriggerDisplay", () => {
     });
   });
 
+  it("shows Daybreak in the trigger only while enabled", () => {
+    for (const currentValue of [true, false]) {
+      expect(
+        display([EFFORT, { id: "daybreak", label: "Daybreak", type: "boolean", currentValue }]),
+      ).toEqual({
+        label: currentValue ? "High · Daybreak" : "High",
+        showFastModeIcon: false,
+      });
+    }
+  });
+
   it("keeps non-fastMode booleans as text labels", () => {
     const thinking: Extract<ProviderOptionDescriptor, { type: "boolean" }> = {
       id: "thinking",

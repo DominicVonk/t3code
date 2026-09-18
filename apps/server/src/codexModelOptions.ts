@@ -12,3 +12,12 @@ export function getCodexServiceTierOptionValue(
     (getModelSelectionBooleanOptionValue(modelSelection, "fastMode") === true ? "fast" : undefined)
   );
 }
+
+/** Explicit false must override Codex's automatic treatment after Daybreak is unchecked. */
+export function getCodexCyberAccessProgramOptionValue(
+  modelSelection: ModelSelection | null | undefined,
+): "standard" | "daybreakBlue" | undefined {
+  if (modelSelection?.model !== "gpt-5.6-sol") return undefined;
+  const enabled = getModelSelectionBooleanOptionValue(modelSelection, "daybreak");
+  return enabled === undefined ? undefined : enabled ? "daybreakBlue" : "standard";
+}

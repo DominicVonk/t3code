@@ -145,6 +145,10 @@ const isMcpElicitationForm = Schema.is(McpElicitationForm);
 const CodexTurnStartParamsWithCollaborationMode = EffectCodexSchema.V2TurnStartParams.pipe(
   Schema.fieldsAssign({
     collaborationMode: Schema.optionalKey(EffectCodexSchema.V2TurnStartParams__CollaborationMode),
+    // Codex 0.155 experimental turn option, absent from the pinned protocol snapshot.
+    cyberAccessProgram: Schema.optionalKey(
+      Schema.Literals(["standard", "daybreakBlue", "daybreakRed"]),
+    ),
   }),
 );
 const decodeCodexTurnStartParamsWithCollaborationMode = Schema.decodeUnknownEffect(
@@ -191,6 +195,7 @@ export interface CodexSessionRuntimeSendTurnInput {
   }>;
   readonly model?: string;
   readonly serviceTier?: CodexServiceTier | undefined;
+  readonly cyberAccessProgram?: CodexTurnStartParamsWithCollaborationMode["cyberAccessProgram"];
   readonly effort?: EffectCodexSchema.V2TurnStartParams__ReasoningEffort | undefined;
   readonly interactionMode?: ProviderInteractionMode;
 }
@@ -619,6 +624,7 @@ export function buildTurnStartParams(input: {
   }>;
   readonly model?: string;
   readonly serviceTier?: CodexServiceTier;
+  readonly cyberAccessProgram?: CodexTurnStartParamsWithCollaborationMode["cyberAccessProgram"];
   readonly effort?: EffectCodexSchema.V2TurnStartParams__ReasoningEffort;
   readonly interactionMode?: ProviderInteractionMode;
   /** Defaults to true so callers that predate the agent-access gate are unchanged. */
@@ -654,6 +660,7 @@ export function buildTurnStartParams(input: {
     sandboxPolicy: runtimeModeToTurnSandboxPolicy(input.runtimeMode),
     ...(input.model ? { model: input.model } : {}),
     ...(input.serviceTier ? { serviceTier: input.serviceTier } : {}),
+    ...(input.cyberAccessProgram ? { cyberAccessProgram: input.cyberAccessProgram } : {}),
     ...(input.effort ? { effort: input.effort } : {}),
     ...(collaborationMode ? { collaborationMode } : {}),
   }).pipe(
@@ -2457,6 +2464,7 @@ export const makeCodexSessionRuntime = (
             ...(input.attachments ? { attachments: input.attachments } : {}),
             ...(normalizedModel ? { model: normalizedModel } : {}),
             ...(input.serviceTier ? { serviceTier: input.serviceTier } : {}),
+            ...(input.cyberAccessProgram ? { cyberAccessProgram: input.cyberAccessProgram } : {}),
             ...(input.effort ? { effort: input.effort } : {}),
             ...(input.interactionMode ? { interactionMode: input.interactionMode } : {}),
             // Derived from the session's own credential rather than the

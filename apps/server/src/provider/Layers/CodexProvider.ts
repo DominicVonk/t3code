@@ -1,3 +1,4 @@
+import { FetchHttpClient } from "effect/unstable/http";
 import * as DateTime from "effect/DateTime";
 import * as Duration from "effect/Duration";
 import * as Effect from "effect/Effect";
@@ -47,6 +48,8 @@ import {
   type CodexResetCreditsSummary,
 } from "./codexUsageLimits.ts";
 import packageJson from "../../../package.json" with { type: "json" };
+import { readCodexDaybreakEligibility, supportsCodexDaybreak } from "./codexDaybreak.ts";
+
 const isCodexAppServerSpawnError = Schema.is(CodexErrors.CodexAppServerSpawnError);
 const RATE_LIMITS_PROBE_TIMEOUT_MS = 3_000;
 
@@ -228,6 +231,30 @@ function parseCodexModelListResponse(
     ...(model.isDefault ? { isDefault: true } : {}),
     capabilities: mapCodexModelCapabilities(model),
   }));
+}
+
+/** Replace the legacy Blue alias with a capability on Sol after verifying account access. */
+export function applyCodexDaybreakOption(
+  models: ReadonlyArray<ServerProviderModel>,
+  eligible: boolean,
+): ReadonlyArray<ServerProviderModel> {
+  if (!eligible || !models.some((model) => model.slug === "gpt-5.6-sol")) return models;
+  return models
+    .filter((model) => model.slug !== "gpt-daybreak-blue-latest")
+    .map((model) =>
+      model.slug === "gpt-5.6-sol"
+        ? {
+            ...model,
+            capabilities: createModelCapabilities({
+              ...model.capabilities,
+              optionDescriptors: [
+                ...(model.capabilities?.optionDescriptors ?? []),
+                { id: "daybreak", label: "Daybreak", type: "boolean", currentValue: false },
+              ],
+            }),
+          }
+        : model,
+    );
 }
 
 /**
@@ -433,7 +460,7 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
     } satisfies CodexAppServerProviderSnapshot;
   }
 
-  const [skillsResponse, models, rateLimits] = yield* Effect.all(
+  const [skillsResponse, models, rateLimits, daybreakEligible] = yield* Effect.all(
     [
       client.request("skills/list", {
         cwds: [input.cwd],
@@ -459,6 +486,18 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
           ),
         ),
       ),
+      accountResponse.account?.type === "chatgpt" && supportsCodexDaybreak(version)
+        ? readCodexDaybreakEligibility({
+            readAuthStatus: client.request("getAuthStatus", {
+              includeToken: true,
+              refreshToken: false,
+            }),
+            readConfig: client.request("config/read", {}),
+          }).pipe(
+            Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error" }),
+            Effect.provide(FetchHttpClient.layer),
+          )
+        : Effect.succeed(false),
     ],
     { concurrency: "unbounded" },
   );
@@ -468,7 +507,10 @@ const probeCodexAppServerProvider = Effect.fn("probeCodexAppServerProvider")(fun
     rateLimits,
     version,
     models: applyPreferredCodexDefaultModel(
-      appendCustomCodexModels(models, input.customModels ?? []),
+      applyCodexDaybreakOption(
+        appendCustomCodexModels(models, input.customModels ?? []),
+        daybreakEligible,
+      ),
     ),
     skills: parseCodexSkillsListResponse(skillsResponse, input.cwd),
   } satisfies CodexAppServerProviderSnapshot;

@@ -1,6 +1,10 @@
 import { assert, it } from "@effect/vitest";
 
-import { applyPreferredCodexDefaultModel, mapCodexModelCapabilities } from "./CodexProvider.ts";
+import {
+  applyPreferredCodexDefaultModel,
+  mapCodexModelCapabilities,
+  applyCodexDaybreakOption,
+} from "./CodexProvider.ts";
 
 it("maps current Codex model capability fields", () => {
   const capabilities = mapCodexModelCapabilities({
@@ -160,4 +164,29 @@ it("ignores custom models that shadow a preferred slug", () => {
   ]);
 
   assert.deepStrictEqual(models.find((model) => model.isDefault)?.slug, "gpt-5.4");
+});
+
+it("offers eligible accounts Daybreak on Sol in place of the Blue alias", () => {
+  const models = [
+    { slug: "gpt-5.6-sol", name: "Sol", isCustom: false, capabilities: null },
+    {
+      slug: "gpt-daybreak-blue-latest",
+      name: "Daybreak Blue",
+      isCustom: false,
+      capabilities: null,
+    },
+    { slug: "gpt-daybreak-red-latest", name: "Daybreak Red", isCustom: false, capabilities: null },
+    { slug: "gpt-6-astra", name: "Astra", isCustom: false, capabilities: null },
+  ];
+  const result = applyCodexDaybreakOption(models, true);
+  assert.deepStrictEqual(
+    result.map((model) => model.slug),
+    ["gpt-5.6-sol", "gpt-daybreak-red-latest", "gpt-6-astra"],
+  );
+  assert.deepStrictEqual(result[0]?.capabilities?.optionDescriptors, [
+    { id: "daybreak", label: "Daybreak", type: "boolean", currentValue: false },
+  ]);
+  assert.equal(result[2]?.capabilities, null);
+  assert.deepStrictEqual(applyCodexDaybreakOption(models, false), models);
+  assert.deepStrictEqual(applyCodexDaybreakOption(models.slice(1), true), models.slice(1));
 });

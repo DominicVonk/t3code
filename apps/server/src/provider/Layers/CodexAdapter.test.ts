@@ -559,6 +559,43 @@ sessionErrorLayer("CodexAdapterLive session errors", (it) => {
     }).pipe(Effect.provide(layer));
   });
 
+  it.effect("toggles Daybreak for successive turns and ignores another instance's selection", () =>
+    Effect.gen(function* () {
+      const adapter = yield* CodexAdapter;
+      const threadId = asThreadId("daybreak-toggle");
+      yield* adapter.startSession({
+        provider: ProviderDriverKind.make("codex"),
+        threadId,
+        runtimeMode: "full-access",
+      });
+      const runtime = sessionRuntimeFactory.lastRuntime;
+      NodeAssert.ok(runtime);
+      runtime.sendTurnImpl.mockClear();
+      for (const enabled of [true, false]) {
+        yield* adapter.sendTurn({
+          threadId,
+          input: "hello",
+          modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.6-sol", [
+            { id: "daybreak", value: enabled },
+          ]),
+        });
+      }
+      yield* adapter.sendTurn({
+        threadId,
+        input: "hello",
+        modelSelection: createModelSelection(
+          ProviderInstanceId.make("codex_other"),
+          "gpt-5.6-sol",
+          [{ id: "daybreak", value: true }],
+        ),
+      });
+      NodeAssert.deepStrictEqual(
+        runtime.sendTurnImpl.mock.calls.map(([input]) => input.cyberAccessProgram),
+        ["daybreakBlue", "standard", undefined],
+      );
+    }),
+  );
+
   it.effect("maps codex model options for the adapter's bound custom instance id", () => {
     const customInstanceId = ProviderInstanceId.make("codex_personal");
     const customRuntimeFactory = makeRuntimeFactory();

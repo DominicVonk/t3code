@@ -4,6 +4,18 @@ For one account, use the default Codex provider with your normal Codex login.
 [Provider setup](./install.md#providers) covers installation, Settings > Providers,
 and custom binaries or environment variables.
 
+## Use Daybreak
+
+With Codex 0.155.0 or newer, select **GPT-5.6 Sol** and enable **Daybreak** in
+its model options. T3 Code checks the signed-in account's Daybreak eligibility
+before offering this option. When available, it replaces the separate Daybreak
+Blue model entry. Turn it off to return to standard treatment on the next turn.
+
+If access was recently granted, refresh the provider status in Settings (or
+refresh models on mobile). Daybreak is unavailable when the access check fails
+or the selected model does not support it. Daybreak Red remains a separate model
+and requires its own access.
+
 ## Use multiple accounts
 
 A shared Codex home with a shadow home lets work and personal accounts continue

@@ -22,6 +22,7 @@ import { buttonVariants } from "../ui/button";
 import {
   Menu,
   MenuGroup,
+  MenuCheckboxItem,
   MenuPopup,
   MenuRadioGroup,
   MenuRadioItem,
@@ -445,6 +446,24 @@ export const TraitsMenuContent = memo(function TraitsMenuContentImpl({
         );
       })}
       {booleanDescriptors.map((descriptor, index) => {
+        if (descriptor.id === "daybreak") {
+          return (
+            <div key={descriptor.id}>
+              {index > 0 || selectDescriptors.length > 0 ? <MenuDivider /> : null}
+              <MenuCheckboxItem
+                checked={descriptor.currentValue === true}
+                onCheckedChange={(checked) =>
+                  updateDescriptors(
+                    replaceDescriptorCurrentValue(descriptors, descriptor.id, checked),
+                  )
+                }
+                closeOnClick={false}
+              >
+                {descriptor.label}
+              </MenuCheckboxItem>
+            </div>
+          );
+        }
         const selectedValue = descriptor.currentValue === true ? "on" : "off";
 
         return (
@@ -496,6 +515,10 @@ export function buildTraitsTriggerDisplay(input: {
   let fastModeEnabled = false;
   const labels: Array<string> = [];
   for (const descriptor of input.descriptors) {
+    if (descriptor.id === "daybreak" && descriptor.type === "boolean") {
+      if (descriptor.currentValue === true) labels.push(descriptor.label);
+      continue;
+    }
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {
       fastModeEnabled = descriptor.currentValue === true;
       fastModeFallbackLabel = fastModeEnabled ? "Fast" : "Normal";

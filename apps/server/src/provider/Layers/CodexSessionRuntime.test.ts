@@ -154,6 +154,25 @@ function makeThreadOpenResponse(
 }
 
 describe("buildTurnStartParams", () => {
+  it.effect("preserves the experimental Daybreak treatment on the wire, including opt-out", () =>
+    Effect.gen(function* () {
+      for (const cyberAccessProgram of ["daybreakBlue", "standard", undefined] as const) {
+        const params = yield* buildTurnStartParams({
+          threadId: "daybreak-thread",
+          runtimeMode: "full-access",
+          model: "gpt-5.6-sol",
+          cyberAccessProgram,
+          serviceTier: "priority",
+          effort: "high",
+        });
+        NodeAssert.equal(params.cyberAccessProgram, cyberAccessProgram);
+        NodeAssert.equal(params.model, "gpt-5.6-sol");
+        NodeAssert.equal(params.serviceTier, "priority");
+        NodeAssert.equal(params.effort, "high");
+      }
+    }),
+  );
+
   it.effect("sends currency skill aliases in Codex's canonical dollar form", () =>
     Effect.gen(function* () {
       for (const symbol of ["€", "£", "¥", "₹", "₩", "₿", "𑿝"]) {
