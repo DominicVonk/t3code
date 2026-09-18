@@ -1,6 +1,10 @@
 import { describe, expect, it } from "vite-plus/test";
 import { ProviderDriverKind, type ProviderOptionDescriptor } from "@t3tools/contracts";
-import { buildTraitsTriggerDisplay, buildUnavailableModelOptionDescriptors } from "./TraitsPicker";
+import {
+  buildTraitsTriggerDisplay,
+  buildUnavailableModelOptionDescriptors,
+  shouldRenderTraitsControls,
+} from "./TraitsPicker";
 
 function selectDescriptor(
   id: string,
@@ -197,5 +201,63 @@ describe("buildUnavailableModelOptionDescriptors", () => {
         currentValue: true,
       },
     ]);
+  });
+});
+
+describe("Daybreak-only models", () => {
+  it("keeps the picker visible and labeled while Daybreak is on or off", () => {
+    for (const currentValue of [true, false]) {
+      const descriptors: ReadonlyArray<ProviderOptionDescriptor> = [
+        { id: "daybreak", label: "Daybreak", type: "boolean", currentValue },
+      ];
+      expect(
+        shouldRenderTraitsControls({
+          provider: CODEX,
+          models: [
+            {
+              slug: "gpt-5.5",
+              name: "GPT-5.5",
+              isCustom: false,
+              capabilities: { optionDescriptors: descriptors },
+            },
+          ],
+          model: "gpt-5.5",
+          prompt: "",
+          modelOptions: undefined,
+          planModeEnabled: false,
+        }),
+      ).toBe(true);
+      expect(
+        buildTraitsTriggerDisplay({
+          provider: CODEX,
+          descriptors,
+          primarySelectDescriptorId: null,
+          ultrathinkPromptControlled: false,
+        }),
+      ).toEqual({
+        label: currentValue ? "Daybreak" : "Daybreak Off",
+        showFastModeIcon: false,
+      });
+    }
+  });
+
+  it("still hides the picker when no controls are available", () => {
+    expect(
+      shouldRenderTraitsControls({
+        provider: CODEX,
+        models: [
+          {
+            slug: "gpt-5.5",
+            name: "GPT-5.5",
+            isCustom: false,
+            capabilities: { optionDescriptors: [] },
+          },
+        ],
+        model: "gpt-5.5",
+        prompt: "",
+        modelOptions: undefined,
+        planModeEnabled: false,
+      }),
+    ).toBe(false);
   });
 });

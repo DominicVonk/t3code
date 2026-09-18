@@ -1,4 +1,4 @@
-import { assert, it, afterEach, vi } from "@effect/vitest";
+import { assert, it, vi } from "@effect/vitest";
 import { FetchHttpClient } from "effect/unstable/http";
 import * as Effect from "effect/Effect";
 
@@ -8,10 +8,14 @@ import {
   supportsCodexDaybreak,
 } from "./codexDaybreak.ts";
 
-const readCodexDaybreakEligibility = (input: Parameters<typeof readEligibility>[0]) =>
+const readCodexDaybreakEligibility = (
+  input: Parameters<typeof readEligibility>[0],
+  fetch: typeof globalThis.fetch,
+) =>
   readEligibility(input).pipe(
     Effect.provideService(FetchHttpClient.RequestInit, { redirect: "error" }),
     Effect.provide(FetchHttpClient.layer),
+    Effect.provideService(FetchHttpClient.Fetch, fetch),
   );
 
 const granted = {
@@ -25,8 +29,6 @@ const input = {
   readAuthStatus: Effect.succeed(auth),
   readConfig: Effect.succeed({ config: {}, origins: {} }),
 };
-
-afterEach(() => vi.unstubAllGlobals());
 
 it("requires an active recognized grant and handles unknown or malformed access conservatively", () => {
   assert.equal(hasCodexDaybreakAccess(granted), true);
@@ -60,8 +62,7 @@ it("gates the experimental option on Codex 0.155 or newer", () => {
 it.effect("checks the selected account and returns only its eligibility", () =>
   Effect.gen(function* () {
     const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(granted));
-    vi.stubGlobal("fetch", fetchMock);
-    assert.equal(yield* readCodexDaybreakEligibility(input), true);
+    assert.equal(yield* readCodexDaybreakEligibility(input, fetchMock), true);
     const [url, options] = fetchMock.mock.calls[0]!;
     assert.equal(url, "https://chatgpt.com/backend-api/accounts/verified_access");
     assert.equal(new Headers(options?.headers).get("authorization"), `Bearer ${token}`);
@@ -72,15 +73,18 @@ it.effect("checks the selected account and returns only its eligibility", () =>
 
 it.effect("rejects results belonging to an account that changed during discovery", () =>
   Effect.gen(function* () {
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(Response.json(granted)));
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(granted));
     let reads = 0;
     assert.equal(
-      yield* readCodexDaybreakEligibility({
-        ...input,
-        readAuthStatus: Effect.sync(() =>
-          ++reads === 1 ? auth : { ...auth, authToken: "another-account-token" },
-        ),
-      }),
+      yield* readCodexDaybreakEligibility(
+        {
+          ...input,
+          readAuthStatus: Effect.sync(() =>
+            ++reads === 1 ? auth : { ...auth, authToken: "another-account-token" },
+          ),
+        },
+        fetchMock,
+      ),
       false,
     );
   }),
@@ -89,14 +93,16 @@ it.effect("rejects results belonging to an account that changed during discovery
 it.effect("does not probe API keys or send malformed credentials", () =>
   Effect.gen(function* () {
     const fetchMock = vi.fn<typeof fetch>();
-    vi.stubGlobal("fetch", fetchMock);
     for (const status of [
       { ...auth, authMethod: "apikey" },
       { ...auth, authToken: null },
       { ...auth, authToken: "invalid" },
     ]) {
       assert.equal(
-        yield* readCodexDaybreakEligibility({ ...input, readAuthStatus: Effect.succeed(status) }),
+        yield* readCodexDaybreakEligibility(
+          { ...input, readAuthStatus: Effect.succeed(status) },
+          fetchMock,
+        ),
         false,
       );
     }
@@ -111,10 +117,58 @@ it.effect("unavailable access checks leave ordinary Codex discovery usable", () 
       Response.json({ programs: [] }),
       new Response("invalid json"),
     ]) {
-      vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockResolvedValue(response));
-      assert.equal(yield* readCodexDaybreakEligibility(input), false);
+      const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(response);
+      assert.equal(yield* readCodexDaybreakEligibility(input, fetchMock), false);
     }
-    vi.stubGlobal("fetch", vi.fn<typeof fetch>().mockRejectedValue(new Error("offline")));
-    assert.equal(yield* readCodexDaybreakEligibility(input), false);
+    const fetchMock = vi.fn<typeof fetch>().mockRejectedValue(new Error("offline"));
+    assert.equal(yield* readCodexDaybreakEligibility(input, fetchMock), false);
+  }),
+);
+
+it.effect("rejects insecure and malformed base URLs before sending credentials", () =>
+  Effect.gen(function* () {
+    const fetchMock = vi.fn<typeof fetch>();
+    for (const chatgpt_base_url of [
+      "http://example.com/backend-api",
+      "http://localhost:8000",
+      "ftp://example.com",
+      "not a url",
+      "",
+    ]) {
+      assert.equal(
+        yield* readCodexDaybreakEligibility(
+          {
+            ...input,
+            readConfig: Effect.succeed({ config: { chatgpt_base_url }, origins: {} }),
+          },
+          fetchMock,
+        ),
+        false,
+      );
+    }
+    assert.equal(fetchMock.mock.calls.length, 0);
+  }),
+);
+
+it.effect("preserves configured HTTPS base URLs", () =>
+  Effect.gen(function* () {
+    const fetchMock = vi.fn<typeof fetch>().mockResolvedValue(Response.json(granted));
+    assert.equal(
+      yield* readCodexDaybreakEligibility(
+        {
+          ...input,
+          readConfig: Effect.succeed({
+            config: { chatgpt_base_url: "https://example.com/custom-api/" },
+            origins: {},
+          }),
+        },
+        fetchMock,
+      ),
+      true,
+    );
+    const [url, options] = fetchMock.mock.calls[0]!;
+    assert.equal(url, "https://example.com/custom-api/accounts/verified_access");
+    assert.equal(new Headers(options?.headers).get("authorization"), `Bearer ${token}`);
+    assert.equal(options?.redirect, "error");
   }),
 );

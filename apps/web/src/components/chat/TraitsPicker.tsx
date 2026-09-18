@@ -254,6 +254,7 @@ function getTraitsSectionVisibility(input: {
       showFastMode ||
       showContextWindow ||
       showAgent ||
+      selected.booleanDescriptors.length > 0 ||
       (selected.modelIsUnavailable && selected.descriptors.length > 0),
   };
 }
@@ -517,6 +518,7 @@ export function buildTraitsTriggerDisplay(input: {
   for (const descriptor of input.descriptors) {
     if (descriptor.id === "daybreak" && descriptor.type === "boolean") {
       if (descriptor.currentValue === true) labels.push(descriptor.label);
+      else if (input.descriptors.length === 1) labels.push(`${descriptor.label} Off`);
       continue;
     }
     if (descriptor.id === "fastMode" && descriptor.type === "boolean") {

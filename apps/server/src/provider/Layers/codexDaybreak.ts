@@ -60,9 +60,11 @@ export const readCodexDaybreakEligibility = Effect.fn("readCodexDaybreakEligibil
       typeof config.chatgpt_base_url === "string"
         ? config.chatgpt_base_url.replace(/\/$/, "")
         : "https://chatgpt.com/backend-api";
+    const accessUrl = URL.parse(`${baseUrl}/accounts/verified_access`);
+    if (accessUrl?.protocol !== "https:") return false;
     const http = yield* HttpClient.HttpClient;
     const response = yield* http
-      .get(`${baseUrl}/accounts/verified_access`, {
+      .get(accessUrl, {
         headers: { Authorization: `Bearer ${auth.authToken}`, "ChatGPT-Account-Id": accountId },
       })
       .pipe(Effect.flatMap(HttpClientResponse.filterStatusOk));
