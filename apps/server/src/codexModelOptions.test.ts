@@ -24,33 +24,55 @@ it("keeps legacy persisted fast mode selections working", () => {
   assert.equal(getCodexServiceTierOptionValue(selection), "fast");
 });
 
-it("maps Daybreak on and off without changing the selected model", () => {
-  for (const [enabled, expected] of [
-    [true, "daybreakBlue"],
-    [false, "standard"],
-  ] as const) {
-    const selection = createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.6-sol", [
-      { id: "daybreak", value: enabled },
-    ]);
-    assert.equal(getCodexCyberAccessProgramOptionValue(selection), expected);
-    assert.equal(selection.model, "gpt-5.6-sol");
+it("maps Daybreak on and off on current and older models without changing their IDs", () => {
+  for (const model of [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.1",
+    "openai.gpt-5.5",
+  ]) {
+    for (const [enabled, expected] of [
+      [true, "daybreakBlue"],
+      [false, "standard"],
+    ] as const) {
+      const selection = createModelSelection(ProviderInstanceId.make("codex"), model, [
+        { id: "daybreak", value: enabled },
+      ]);
+      assert.equal(getCodexCyberAccessProgramOptionValue(selection), expected);
+      assert.equal(selection.model, model);
+    }
+    assert.equal(
+      getCodexCyberAccessProgramOptionValue(
+        createModelSelection(ProviderInstanceId.make("codex"), model),
+      ),
+      undefined,
+    );
   }
   assert.equal(getCodexCyberAccessProgramOptionValue(undefined), undefined);
-  assert.equal(
-    getCodexCyberAccessProgramOptionValue(
-      createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.6-sol"),
-    ),
-    undefined,
-  );
 });
 
-it("does not send a stale Daybreak preference after switching to Astra", () => {
-  assert.equal(
-    getCodexCyberAccessProgramOptionValue(
-      createModelSelection(ProviderInstanceId.make("codex"), "gpt-6-astra", [
-        { id: "daybreak", value: true },
-      ]),
-    ),
-    undefined,
-  );
+it("ignores stale Daybreak preferences for both Astra variants and dedicated Daybreak aliases", () => {
+  for (const model of [
+    "gpt-6-astra",
+    "gpt-6-astra-wm",
+    "openai.gpt-6-astra",
+    "openai.gpt-6-astra-wm",
+    "gpt-daybreak-blue-latest",
+    "gpt-daybreak-red-latest",
+  ]) {
+    for (const enabled of [true, false]) {
+      assert.equal(
+        getCodexCyberAccessProgramOptionValue(
+          createModelSelection(ProviderInstanceId.make("codex"), model, [
+            { id: "daybreak", value: enabled },
+          ]),
+        ),
+        undefined,
+      );
+    }
+  }
 });

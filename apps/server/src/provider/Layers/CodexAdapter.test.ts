@@ -571,11 +571,16 @@ sessionErrorLayer("CodexAdapterLive session errors", (it) => {
       const runtime = sessionRuntimeFactory.lastRuntime;
       NodeAssert.ok(runtime);
       runtime.sendTurnImpl.mockClear();
-      for (const enabled of [true, false]) {
+      for (const [model, enabled] of [
+        ["gpt-5.6-sol", true],
+        ["gpt-5.5", true],
+        ["gpt-5.5", false],
+        ["gpt-6-astra-wm", true],
+      ] as const) {
         yield* adapter.sendTurn({
           threadId,
           input: "hello",
-          modelSelection: createModelSelection(ProviderInstanceId.make("codex"), "gpt-5.6-sol", [
+          modelSelection: createModelSelection(ProviderInstanceId.make("codex"), model, [
             { id: "daybreak", value: enabled },
           ]),
         });
@@ -591,7 +596,7 @@ sessionErrorLayer("CodexAdapterLive session errors", (it) => {
       });
       NodeAssert.deepStrictEqual(
         runtime.sendTurnImpl.mock.calls.map(([input]) => input.cyberAccessProgram),
-        ["daybreakBlue", "standard", undefined],
+        ["daybreakBlue", "daybreakBlue", "standard", undefined, undefined],
       );
     }),
   );

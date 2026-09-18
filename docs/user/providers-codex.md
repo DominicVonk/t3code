@@ -6,9 +6,9 @@ and custom binaries or environment variables.
 
 ## Use Daybreak
 
-With Codex 0.155.0 or newer, select **GPT-5.6 Sol** and enable **Daybreak** in
-its model options. T3 Code checks the signed-in account's Daybreak eligibility
-before offering this option. When available, it replaces the separate Daybreak
+With Codex 0.155.0 or newer, enable **Daybreak** in your model options.
+It is available on older models as well as GPT-5.6 Sol; Astra is not supported yet.
+T3 Code checks the signed-in account's Daybreak eligibility before offering this option. When available, it replaces the separate Daybreak
 Blue model entry. Turn it off to return to standard treatment on the next turn.
 
 If access was recently granted, refresh the provider status in Settings (or

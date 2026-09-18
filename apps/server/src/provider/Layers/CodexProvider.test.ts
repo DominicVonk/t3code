@@ -166,27 +166,55 @@ it("ignores custom models that shadow a preferred slug", () => {
   assert.deepStrictEqual(models.find((model) => model.isDefault)?.slug, "gpt-5.4");
 });
 
-it("offers eligible accounts Daybreak on Sol in place of the Blue alias", () => {
-  const models = [
-    { slug: "gpt-5.6-sol", name: "Sol", isCustom: false, capabilities: null },
-    {
-      slug: "gpt-daybreak-blue-latest",
-      name: "Daybreak Blue",
-      isCustom: false,
-      capabilities: null,
-    },
-    { slug: "gpt-daybreak-red-latest", name: "Daybreak Red", isCustom: false, capabilities: null },
-    { slug: "gpt-6-astra", name: "Astra", isCustom: false, capabilities: null },
+it("offers Daybreak on older models even when Sol is absent", () => {
+  const slugs = [
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "gpt-5.5",
+    "gpt-5.4",
+    "gpt-5.3-codex",
+    "gpt-5.1",
+    "openai.gpt-5.5",
   ];
+  const models = [...slugs, "gpt-daybreak-blue-latest"].map((slug) => ({
+    slug,
+    name: slug,
+    isCustom: false,
+    capabilities: null,
+  }));
   const result = applyCodexDaybreakOption(models, true);
   assert.deepStrictEqual(
     result.map((model) => model.slug),
-    ["gpt-5.6-sol", "gpt-daybreak-red-latest", "gpt-6-astra"],
+    slugs,
   );
-  assert.deepStrictEqual(result[0]?.capabilities?.optionDescriptors, [
-    { id: "daybreak", label: "Daybreak", type: "boolean", currentValue: false },
-  ]);
-  assert.equal(result[2]?.capabilities, null);
+  for (const model of result) {
+    assert.deepStrictEqual(model.capabilities?.optionDescriptors, [
+      { id: "daybreak", label: "Daybreak", type: "boolean", currentValue: false },
+    ]);
+  }
   assert.deepStrictEqual(applyCodexDaybreakOption(models, false), models);
-  assert.deepStrictEqual(applyCodexDaybreakOption(models.slice(1), true), models.slice(1));
+});
+
+it("excludes both Astra variants and keeps dedicated Red routing", () => {
+  const excluded = [
+    "gpt-6-astra",
+    "gpt-6-astra-wm",
+    "openai.gpt-6-astra",
+    "openai.gpt-6-astra-wm",
+    "gpt-daybreak-red-latest",
+  ];
+  const models = ["gpt-5.6-sol", ...excluded].map((slug) => ({
+    slug,
+    name: slug,
+    isCustom: false,
+    capabilities: null,
+  }));
+  const result = applyCodexDaybreakOption(models, true);
+  assert.equal(result[0]?.capabilities?.optionDescriptors?.[0]?.id, "daybreak");
+  assert.deepStrictEqual(result.slice(1), models.slice(1));
+  const withoutAlternative = [
+    ...models.slice(1),
+    { slug: "gpt-daybreak-blue-latest", name: "Blue", isCustom: false, capabilities: null },
+  ];
+  assert.deepStrictEqual(applyCodexDaybreakOption(withoutAlternative, true), withoutAlternative);
 });

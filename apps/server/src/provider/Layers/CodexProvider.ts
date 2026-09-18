@@ -48,6 +48,7 @@ import {
   type CodexResetCreditsSummary,
 } from "./codexUsageLimits.ts";
 import packageJson from "../../../package.json" with { type: "json" };
+import { supportsCodexDaybreakBlueModel } from "../../codexModelOptions.ts";
 import { readCodexDaybreakEligibility, supportsCodexDaybreak } from "./codexDaybreak.ts";
 
 const isCodexAppServerSpawnError = Schema.is(CodexErrors.CodexAppServerSpawnError);
@@ -233,16 +234,17 @@ function parseCodexModelListResponse(
   }));
 }
 
-/** Replace the legacy Blue alias with a capability on Sol after verifying account access. */
+/** Replace the legacy Blue alias with an option on eligible models after verifying account access. */
 export function applyCodexDaybreakOption(
   models: ReadonlyArray<ServerProviderModel>,
   eligible: boolean,
 ): ReadonlyArray<ServerProviderModel> {
-  if (!eligible || !models.some((model) => model.slug === "gpt-5.6-sol")) return models;
+  if (!eligible || !models.some((model) => supportsCodexDaybreakBlueModel(model.slug)))
+    return models;
   return models
-    .filter((model) => model.slug !== "gpt-daybreak-blue-latest")
+    .filter((model) => codexModelFamily(model.slug) !== "gpt-daybreak-blue-latest")
     .map((model) =>
-      model.slug === "gpt-5.6-sol"
+      supportsCodexDaybreakBlueModel(model.slug)
         ? {
             ...model,
             capabilities: createModelCapabilities({
